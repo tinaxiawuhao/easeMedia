@@ -114,16 +114,6 @@ public class InitServer implements CommandLineRunner {
 	 */
 	@PostConstruct
 	public void loadFFmpeg() {
-		//javacv 1.5.5 以上已经优化加载，这边可以省略了
-//		try {
-//			log.info("正在初始化资源，请稍等...");
-//			FFmpegFrameGrabber.tryLoad();
-//			FFmpegFrameRecorder.tryLoad();
-//		} catch (org.bytedeco.javacv.FrameGrabber.Exception e) {
-//			e.printStackTrace();
-//		} catch (org.bytedeco.javacv.FrameRecorder.Exception e) {
-//			e.printStackTrace();
-//		}
 
 		/**
 		 * 初始化ffmpeg路径

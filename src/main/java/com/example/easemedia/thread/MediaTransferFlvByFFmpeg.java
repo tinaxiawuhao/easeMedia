@@ -1,19 +1,11 @@
 package com.example.easemedia.thread;
 
 import cn.hutool.core.collection.CollUtil;
-import com.example.easemedia.common.ClientType;
 import com.example.easemedia.common.MediaConstant;
 import com.example.easemedia.entity.dto.CameraDto;
 import com.example.easemedia.service.MediaService;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.bytedeco.javacv.FrameGrabber.Exception;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -22,10 +14,8 @@ import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -36,22 +26,12 @@ import java.util.concurrent.TimeUnit;
  * 无法直接操作帧，延迟优化没javacv方便
  */
 @Slf4j
-public class MediaTransferFlvByFFmpeg extends MediaTransfer {
+public class MediaTransferFlvByFFmpeg extends MediaFFmpegTransfer {
 
-
-    private CameraDto cameraDto;
-    //命令存储
-    private final List<String> command = new ArrayList<>();
     //socket通道
-    private ServerSocket tcpServer = null;
-
-    //一个新进程
-    private Process process;
-    private boolean running = false; // 启动
-    private boolean enableLog = true;
-
-    // 记录当前
-    long currentTimeMillis = System.currentTimeMillis();
+    public ServerSocket tcpServer = null;
+    //命令存储
+    public final List<String> command = new ArrayList<>();
 
     public MediaTransferFlvByFFmpeg(final String executable) {
         command.add(executable);
@@ -146,7 +126,7 @@ public class MediaTransferFlvByFFmpeg extends MediaTransfer {
      * @return
      */
     @SneakyThrows
-    public MediaTransferFlvByFFmpeg execute() {
+    public void execute() {
         command.add(getOutput());
         log.info(CollUtil.join(command, " "));
         process = new ProcessBuilder(command).start();
@@ -155,114 +135,61 @@ public class MediaTransferFlvByFFmpeg extends MediaTransfer {
         dealStream(process);
         outputData();
         listenClient();
-        return this;
     }
 
     /**
      * flv数据
      */
     private void outputData() {
-        //					ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        //							System.out.println(HexUtil.encodeHexStr(header));
-        // 帧数据
-        // 发送到前端
-        //					e1.printStackTrace();
-        //					超时关闭
-        //					e.printStackTrace();
-        Thread outputThread = new Thread(new Runnable() {
-            public void run() {
-                Socket client = null;
-                try {
-                    client = tcpServer.accept();
-                    DataInputStream input = new DataInputStream(client.getInputStream());
-
-                    byte[] buffer = new byte[1024];
-                    int len = 0;
-//					ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                    while (running) {
-
-                        len = input.read(buffer);
-                        if (len == -1) {
-                            break;
-                        }
-
-                        bos.write(buffer, 0, len);
-
-                        if (header == null) {
-                            header = bos.toByteArray();
-//							System.out.println(HexUtil.encodeHexStr(header));
-                            bos.reset();
-                            continue;
-                        }
-
-                        // 帧数据
-                        byte[] data = bos.toByteArray();
-                        bos.reset();
-
-                        // 发送到前端
-                        sendFrameData(data);
-                    }
-
-                    try {
-                        client.close();
-                    } catch (java.lang.Exception e) {
-                    }
-                    try {
-                        input.close();
-                    } catch (java.lang.Exception e) {
-                    }
-                    try {
-                        bos.close();
-                    } catch (java.lang.Exception e) {
-                    }
-
-                    log.info("关闭媒体流-ffmpeg，{} ", cameraDto.getUrl());
-
-                } catch (SocketTimeoutException e1) {
-//					e1.printStackTrace();
-//					超时关闭
-                } catch (IOException e) {
-//					e.printStackTrace();
-                } finally {
-                    MediaService.cameras.remove(cameraDto.getMediaKey());
-                    running = false;
-                    process.destroy();
-                    try {
-                        if (null != client) {
-                            client.close();
-                        }
-                    } catch (IOException e) {
-                    }
-                    try {
-                        if (null != tcpServer) {
-                            tcpServer.close();
-                        }
-                    } catch (IOException e) {
-                    }
-                }
-            }
-        });
-
-        outputThread.start();
-    }
-
-    /**
-     * 监听客户端
-     */
-    public void listenClient() {
-        Thread listenThread = new Thread(new Runnable() {
-            public void run() {
+        CompletableFuture.runAsync(() -> {
+            try (Socket client = tcpServer.accept()) {
+                DataInputStream input = new DataInputStream(client.getInputStream());
+                byte[] buffer = new byte[1024];
+                int len;
+                log.info("running...."+ running);
                 while (running) {
-                    hasClient();
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
+                    len = input.read(buffer);
+                    if (len == -1) {
+                        break;
                     }
+                    bos.write(buffer, 0, len);
+                    if (header == null) {
+                        header = bos.toByteArray();
+                        bos.reset();
+                        continue;
+                    }
+
+                    // 帧数据
+                    byte[] data = bos.toByteArray();
+                    bos.reset();
+                    // 发送到前端
+                    sendFrameData(data);
+                }
+
+                try {
+                    client.close();
+                    input.close();
+                    bos.close();
+                } catch (java.lang.Exception ignored) {
+                }
+
+                log.info("关闭媒体流-ffmpeg，{} ", cameraDto.getUrl());
+
+            } catch (IOException ignored) {
+            } finally {
+                MediaService.cameras.remove(cameraDto.getMediaKey());
+                running = false;
+                process.destroy();
+                try {
+                    if (null != tcpServer) {
+                        tcpServer.close();
+                    }
+                } catch (IOException ignored) {
                 }
             }
         });
-        listenThread.start();
     }
+
 
     /**
      * 监听网络异常超时
@@ -278,7 +205,7 @@ public class MediaTransferFlvByFFmpeg extends MediaTransfer {
                         }
 
                         try {
-                            TimeUnit.MILLISECONDS.sleep(1000);
+                            TimeUnit.MILLISECONDS.sleep(5000);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -303,70 +230,7 @@ public class MediaTransferFlvByFFmpeg extends MediaTransfer {
         return new MediaTransferFlvByFFmpeg(executable);
     }
 
-    /**
-     * 控制台输出
-     *
-     * @param process
-     */
-    private void dealStream(Process process) {
-        if (process == null) {
-            return;
-        }
-        // 处理InputStream的线程
-        CompletableFuture.runAsync(() -> {
-                    BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    String line;
-                    try {
-                        while (running) {
-                            line = in.readLine();
-                            currentTimeMillis = System.currentTimeMillis();
-                            if (line == null) {
-                                break;
-                            }
-                            if (enableLog) {
-                                log.info("output: " + line);
-                            }
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    } finally {
-                        try {
-                            running = false;
-                            in.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
 
-                }
-        );
-        // 处理ErrorStream的线程
-        CompletableFuture.runAsync(() -> {
-            BufferedReader err = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            String line = null;
-            try {
-                while (running) {
-                    line = err.readLine();
-                    currentTimeMillis = System.currentTimeMillis();
-                    if (line == null) {
-                        break;
-                    }
-                    if (enableLog) {
-                        log.info("ffmpeg: " + line);
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            } finally {
-                try {
-                    running = false;
-                    err.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
 
     /**
      * 输出到tcp
@@ -387,176 +251,17 @@ public class MediaTransferFlvByFFmpeg extends MediaTransfer {
         }
     }
 
+
     /**
      * 关闭
      */
     public void stopFFmpeg() {
-        this.running = false;
-        try {
-            this.process.destroy();
-            log.info("关闭媒体流-ffmpeg，{} ", cameraDto.getUrl());
-        } catch (java.lang.Exception e) {
-            process.destroyForcibly();
-        }
-
+        super.stop();
         // 媒体异常时，主动断开前端长连接
-        for (Entry<String, ChannelHandlerContext> entry : wsClients.entrySet()) {
-            try {
-                entry.getValue().close();
-            } catch (java.lang.Exception ignored) {
-            } finally {
-                wsClients.remove(entry.getKey());
-            }
-        }
-        for (Entry<String, ChannelHandlerContext> entry : httpClients.entrySet()) {
-            try {
-                entry.getValue().close();
-            } catch (java.lang.Exception ignored) {
-            } finally {
-                httpClients.remove(entry.getKey());
-            }
-        }
+        super.stopFFmpeg();
     }
 
-    /**
-     * 关闭流
-     *
-     * @return
-     */
-    public void hasClient() {
 
-        int newHcSize = httpClients.size();
-        int newWcSize = wsClients.size();
-        if (hcSize != newHcSize || wcSize != newWcSize) {
-            hcSize = newHcSize;
-            wcSize = newWcSize;
-            log.info("\r\n{}\r\nhttp连接数：{}, ws连接数：{} \r\n", cameraDto.getUrl(), newHcSize, newWcSize);
-        }
 
-        // 无需自动关闭
-        if (!cameraDto.isAutoClose()) {
-            return;
-        }
-
-        if (httpClients.isEmpty() && wsClients.isEmpty()) {
-            // 等待20秒还没有客户端，则关闭推流
-            if (noClient > cameraDto.getNoClientsDuration()) {
-                running = false;
-                MediaService.cameras.remove(cameraDto.getMediaKey());
-            } else {
-                noClient += 1000;
-//				log.info("\r\n{}\r\n {} 秒自动关闭推拉流 \r\n", camera.getUrl(), noClientsDuration-noClient);
-            }
-        } else {
-            // 重置计时
-            noClient = 0;
-        }
-    }
-
-    /**
-     * 发送帧数据
-     *
-     * @param data
-     */
-    private void sendFrameData(byte[] data) {
-        // ws
-        for (Entry<String, ChannelHandlerContext> entry : wsClients.entrySet()) {
-            try {
-                if (entry.getValue().channel().isWritable()) {
-                    entry.getValue().writeAndFlush(new BinaryWebSocketFrame(Unpooled.copiedBuffer(data)));
-                } else {
-                    wsClients.remove(entry.getKey());
-                    hasClient();
-                }
-            } catch (java.lang.Exception e) {
-                wsClients.remove(entry.getKey());
-                hasClient();
-                e.printStackTrace();
-            }
-        }
-        // http
-        for (Entry<String, ChannelHandlerContext> entry : httpClients.entrySet()) {
-            try {
-                if (entry.getValue().channel().isWritable()) {
-                    entry.getValue().writeAndFlush(Unpooled.copiedBuffer(data));
-                } else {
-                    httpClients.remove(entry.getKey());
-                    hasClient();
-                }
-            } catch (java.lang.Exception e) {
-                httpClients.remove(entry.getKey());
-                hasClient();
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     * 新增客户端
-     *
-     * @param ctx   netty client
-     * @param ctype enum,ClientType
-     */
-    public void addClient(ChannelHandlerContext ctx, ClientType ctype) {
-        int timeout = 0;
-        while (true) {
-            try {
-                if (header != null) {
-                    try {
-                        if (ctx.channel().isWritable()) {
-                            // 发送帧前先发送header
-                            if (ClientType.HTTP.getType() == ctype.getType()) {
-                                ChannelFuture future = ctx.writeAndFlush(Unpooled.copiedBuffer(header));
-                                future.addListener(new GenericFutureListener<Future<? super Void>>() {
-                                    @Override
-                                    public void operationComplete(Future<? super Void> future) throws Exception {
-                                        if (future.isSuccess()) {
-                                            httpClients.put(ctx.channel().id().toString(), ctx);
-                                        }
-                                    }
-                                });
-                            } else if (ClientType.WEBSOCKET.getType() == ctype.getType()) {
-                                ChannelFuture future = ctx
-                                        .writeAndFlush(new BinaryWebSocketFrame(Unpooled.copiedBuffer(header)));
-                                future.addListener(new GenericFutureListener<Future<? super Void>>() {
-                                    @Override
-                                    public void operationComplete(Future<? super Void> future) throws Exception {
-                                        if (future.isSuccess()) {
-                                            wsClients.put(ctx.channel().id().toString(), ctx);
-                                        }
-                                    }
-                                });
-                            }
-                        }
-
-                    } catch (java.lang.Exception e) {
-                        e.printStackTrace();
-                    }
-                    break;
-                }
-
-                // 等待推拉流启动
-                Thread.sleep(50);
-                // 启动录制器失败
-                timeout += 50;
-                if (timeout > 30000) {
-                    break;
-                }
-            } catch (java.lang.Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public static void main(String[] args) throws Exception {
-//		ServerSocket serverSocket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
-//		System.out.println(serverSocket.getLocalPort());
-//		System.out.println(serverSocket.getInetAddress().getHostAddress());
-
-        MediaTransferFlvByFFmpeg.atPath().addArgument("-i")
-                .addArgument("rtsp://admin:VZCDOY@192.168.2.84:554/Streaming/Channels/102").addArgument("-g")
-                .addArgument("5").addArgument("-c:v").addArgument("libx264").addArgument("-c:a").addArgument("aac")
-                .addArgument("-f").addArgument("flv").execute();
-    }
 
 }

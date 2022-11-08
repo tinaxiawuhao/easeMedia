@@ -5,9 +5,7 @@ import com.example.easemedia.common.MediaConstant;
 import com.example.easemedia.entity.dto.CameraDto;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,22 +14,9 @@ import java.util.List;
  *
  */
 @Slf4j
-public class MediaTransferHls extends MediaTransfer {
-	
-	/**
-	 * 运行状态
-	 */
-	private boolean running = false;
-	
-	private final boolean enableLog = false;
-	private Process process;
+public class MediaTransferHls extends MediaFFmpegTransfer {
 
 	private final int port;
-	
-	/**
-	 * 相机
-	 */
-	private final CameraDto cameraDto;
 
 	/**
 	 * cmd
@@ -110,89 +95,5 @@ public class MediaTransferHls extends MediaTransfer {
 			e.printStackTrace();
 		}
 	}
-	
-	/**
-	 * 关闭
-	 */
-	public void stop() {
-		this.running = false;
-		try {
-			process.destroy();
-			log.info("关闭媒体流-ffmpeg，{} ", cameraDto.getUrl());
-		} catch (Exception e) {
-			process.destroyForcibly();
-		}
-	}
 
-
-	/**
-	 * 控制台输出
-	 * 
-	 * @param process
-	 */
-	private void dealStream(Process process) {
-		if (process == null) {
-			return;
-		}
-		// 处理InputStream的线程
-		Thread inputThread = new Thread() {
-			@Override
-			public void run() {
-				BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream()));
-				String line;
-				try {
-					while (running) {
-						line = in.readLine();
-						if (line == null) {
-							break;
-						}
-						if (enableLog) {
-							log.info("output: " + line);
-						}
-					}
-				} catch (IOException e) {
-					e.printStackTrace();
-				} finally {
-					try {
-						running = false;
-						in.close();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-			}
-		};
-		// 处理ErrorStream的线程
-		Thread errThread = new Thread() {
-			@Override
-			public void run() {
-				BufferedReader err = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-				String line;
-				try {
-					while (running) {
-						line = err.readLine();
-						if (line == null) {
-							break;
-						}
-						if (enableLog) {
-							log.info("err: " + line);
-						}
-					}
-				} catch (IOException e) {
-					e.printStackTrace();
-				} finally {
-					try {
-						running = false;
-						err.close();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-			}
-		};
-
-		inputThread.start();
-		errThread.start();
-	}
-	
 }

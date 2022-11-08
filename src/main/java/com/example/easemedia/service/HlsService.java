@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 处理hls
@@ -104,7 +105,7 @@ public class HlsService {
 			if (mediaTransferHls.isRunning()) {
 				return true;
 			}
-			Thread.sleep(500);
+			TimeUnit.MILLISECONDS.sleep(500);
 		}
 		return false;
 	}

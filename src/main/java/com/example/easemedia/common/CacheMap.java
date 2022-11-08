@@ -1,6 +1,7 @@
 package com.example.easemedia.common;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 用来存储短暂对象的缓存类，实现Map接口，内部有一个定时器用来清除过期（30秒）的对象。
@@ -75,7 +76,7 @@ public class CacheMap<K, V> extends AbstractMap<K, V> {
 							}
 						}
 					}
-					Thread.sleep(cacheTimeout);
+					TimeUnit.MILLISECONDS.sleep(cacheTimeout);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}

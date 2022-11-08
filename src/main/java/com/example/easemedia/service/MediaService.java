@@ -13,6 +13,7 @@ import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 媒体服务，支持全局网络超时、读写超时、无人拉流持续时长自动关闭流等配置
@@ -68,7 +69,7 @@ public class MediaService {
 			} else {
 				MediaTransferFlvByJavacv mediaConvert = new MediaTransferFlvByJavacv(cameraDto);
 				cameras.put(cameraDto.getMediaKey(), mediaConvert);
-				ThreadUtil.execute(mediaConvert);
+				mediaConvert.execute();
 				mediaConvert.addClient(ctx, ClientType.HTTP);
 			}
 			
@@ -113,8 +114,8 @@ public class MediaService {
 				mediaft.addClient(ctx, ClientType.WEBSOCKET);
 			} else {
 				MediaTransferFlvByJavacv mediaConvert = new MediaTransferFlvByJavacv(cameraDto);
+				mediaConvert.execute();
 				cameras.put(cameraDto.getMediaKey(), mediaConvert);
-				ThreadUtil.execute(mediaConvert);
 				mediaConvert.addClient(ctx, ClientType.WEBSOCKET);	
 			}
 		}
@@ -140,8 +141,8 @@ public class MediaService {
 				cameras.put(cameraDto.getMediaKey(), mediaft);
 			} else {
 				MediaTransferFlvByJavacv mediaConvert = new MediaTransferFlvByJavacv(cameraDto);
+				mediaConvert.execute();
 				cameras.put(cameraDto.getMediaKey(), mediaConvert);
-				ThreadUtil.execute(mediaConvert);
 			}
 		}
 		
@@ -154,7 +155,7 @@ public class MediaService {
 				if (mediaft.isRunning() && mediaft.isGrabberStatus() && mediaft.isRecorderStatus()) {
 					return true;
 				}
-				Thread.sleep(500);
+				TimeUnit.MILLISECONDS.sleep(500);
 			}
 		} else if (mediaTransfer instanceof MediaTransferFlvByFFmpeg) {
 			MediaTransferFlvByFFmpeg mediaft = (MediaTransferFlvByFFmpeg) mediaTransfer;
@@ -163,7 +164,7 @@ public class MediaService {
 				if (mediaft.isRunning()) {
 					return true;
 				}
-				Thread.sleep(500);
+				TimeUnit.MILLISECONDS.sleep(500);
 			}
 		}
 		return false;
