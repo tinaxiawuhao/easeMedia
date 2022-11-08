@@ -1,0 +1,89 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>测试websocket</title>
+
+		<script type="text/javascript">
+			var imgData = null;
+			function WebSocketTest() {
+				if ("WebSocket" in window) {
+					alert("您的浏览器支持 WebSocket!");
+
+					// 打开一个 web socket
+					var ws = new WebSocket("ws://localhost:3000/live/img/33");
+
+					ws.onopen = function() {
+						// Web Socket 已连接上，使用 send() 方法发送数据
+						// ws.send("发送数据");
+
+					};
+
+					ws.onmessage = function(evt) {
+						var received_msg = evt.data;
+						var livedata = JSON.parse(received_msg);
+						var data = livedata.rgbData;
+						
+						if(!imgData){
+							imgData = ctx.createImageData(livedata.width, livedata.height);
+						}
+						
+						for (var i = 0; i < data.length; i ++) {
+							// imgData.data[i + 0] = data[i];
+							// imgData.data[i + 1] = data[i + 1];
+							// imgData.data[i + 2] = data[i + 2];
+							// imgData.data[i + 3] = data[i + 3];
+							
+							imgData.data[i] = data[i];
+						}
+
+						ctx.putImageData(imgData, 0, 0);
+					};
+
+					ws.onclose = function() {
+						// 关闭 websocket
+						// alert("连接已关闭..."); 
+					};
+				} else {
+					// 浏览器不支持 WebSocket
+					alert("您的浏览器不支持 WebSocket!");
+				}
+			}
+
+			var ctx = null;
+			window.onload = function() {
+				var ccc = document.getElementById("mycanvas");
+				ctx = ccc.getContext("2d");
+				// ctx.putImageData(imgData, 0, 0);
+			}
+
+			// int转rgb
+			function converArgbToRgb(argb) {
+				var r = (argb & 0xff0000) >> 16;
+				var g = (argb & 0xff00) >> 8;
+				var b = (argb & 0xff);
+
+				imgData.data.push(r);
+				imgData.data.push(g);
+				imgData.data.push(b);
+				imgData.data.push(255);
+
+			}
+
+			// rgb转int
+			function converRgbToArgb(r, g, b) {
+				var color = ((0xFF << 24) | (r << 16) | (g << 8) | b);
+				return color;
+			}
+		</script>
+
+	</head>
+	<body>
+
+		<div id="sse">
+			<a href="javascript:WebSocketTest()">运行 WebSocket</a>
+		</div>
+		<canvas id="mycanvas" width="500" height="500" style="border: solid 1px #42B983;"></canvas>
+
+	</body>
+</html>
