@@ -79,7 +79,21 @@ public class MediaTransferFlvByFFmpeg extends MediaFFmpegTransfer {
     }
 
     /**
-     * 构建ffmpeg转码命令,新版javacv移除libx264，使用libopenh264 查看显卡硬件加速支持的选项ffmpeg -hwaccels
+     * 1.5.6开始javacv不再默认包含gpl许可协议的编解码库，涉及到的库包含：libx264、libx265等等。
+     * 关于gpl许可协议提示
+     * 商用软件如果确认不开源，请谨慎考虑是否使用gpl许可的代码库。
+     * 使用h264在默认情况下，ffmpeg会使用cisco(思科)的openh264编解码库，所以h264也不受影响，除非你要使用libx264，则必须在原有基础上添加下述依赖项。
+     * -- Optional GPL builds with (almost) everything enabled
+     *         <dependency>
+     *             <groupId>org.bytedeco</groupId>
+     *             <artifactId>ffmpeg-platform-gpl</artifactId>
+     *             <version>4.4-1.5.6</version>
+     *         </dependency>
+     * -----------------------------------
+     *
+     * JavaCV升级1.5.6之后遇到h265/hevc编码的视频无法打开编解码器avcodec_open2() error -1:Could not open video codec异常解决办法
+     * https://blog.51cto.com/eguid/4859610
+     * 构建ffmpeg转码命令,1.56新版javacv移除libx264，使用libopenh264 查看显卡硬件加速支持的选项ffmpeg -hwaccels
      * 查看ffmpeg支持选项 linux：ffmpeg -codecs | grep cuvid， window：ffmpeg -codecs |
      * findstr cuvid h264_nvenc ffmpeg -hwaccel cuvid -c:v h264_cuvid
      * -rtsp_transport tcp -i "rtsp地址" -c:v h264_nvenc -b:v 500k -vf

@@ -55,22 +55,16 @@
         </dependency>
 
         <!-- ffmpeg全平台引入 -->
-        <!-- <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>ffmpeg-platform</artifactId>
-            <version>4.4-1.5.6</version>
-        </dependency> -->
         <dependency>
             <groupId>org.bytedeco</groupId>
-            <artifactId>ffmpeg</artifactId>
-            <version>4.4-1.5.6</version>
-            <classifier>windows-x86_64</classifier>
+            <artifactId>javacv-platform</artifactId>
+            <version>1.5.6</version>
         </dependency>
+        <!-- Optional GPL builds with (almost) everything enabled -->
         <dependency>
             <groupId>org.bytedeco</groupId>
-            <artifactId>ffmpeg</artifactId>
+            <artifactId>ffmpeg-platform-gpl</artifactId>
             <version>4.4-1.5.6</version>
-            <classifier>linux-x86_64</classifier>
         </dependency>
 
         <!-- 工具包 -->
